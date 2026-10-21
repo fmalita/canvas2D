@@ -201,3 +201,28 @@ While there is some overlap, HTML-in-Canvas does not address some of the core/co
 HTML-in-Canvas is also in the proposal stages, and the availability/timeline is unclear.
 
 The same performance concerns apply.
+
+### WebKit proposal
+
+This proposal shares its core architecture with WebKit's [CanvasTextShaping proposal](https://github.com/WebKit/explainers/pull/137): separating text shaping (`shapeText()`) from measurement (`measureText()`), representing both shaped runs and minimal clusters with a unified `GlyphRun` type, exposing per-run font metrics via `GlyphRun.textMetrics()`, and rendering via `fillGlyphRun(s)` / `strokeGlyphRun(s)`.
+
+Where this proposal diverges from WebKit's initial sketch, it does so for API ergonomics, performance, and incremental standardization:
+
+#### 1. `ShapedText` wrapper vs. returning a raw `sequence<GlyphRun>`
+In the WebKit sketch, `ctx.shapeText()` returns a raw `sequence<GlyphRun>`, and hit-testing/splitting methods (`advanceToPosition()`, `positionToAdvance()`, `split()`) live on `GlyphRun`. Returning a `ShapedText` container instead provides several benefits:
+
+* **Shared shaping state**: All `GlyphRun`s produced from a `shapeText()` call share the same underlying shaped text buffer, font, and context styles. Retaining that state once on `ShapedText` reduces per-run/per-cluster memory overhead.
+* **String-level query surface**: Selection rectangles (`selectionRects()`), ink bounds (`actualBoundingBox()`), hit testing (`advanceToPosition()`), and caret positioning (`positionToAdvance()`) naturally operate across the entire shaped string—including across bidi and fallback-font run boundaries—without forcing callers to manually iterate and stitch results across individual `GlyphRun`s.
+* **Unambiguous string-global indexing**: Hosting `glyphClusters(start, end)` and range queries on `ShapedText` keeps all character offsets in a single, consistent `[0, text.length]` coordinate space relative to the input string, avoiding ambiguity between string-global and run-local indices when slicing a `GlyphRun`.
+
+#### 2. Direct `GlyphRun` geometry (`start`, `end`, `x`, `y`, `width`) vs. nested `TextRun`
+In the WebKit sketch, a `GlyphRun` nests its source range inside a `TextRun` object (`{ text, start }`) and only exposes its advance via `run.textMetrics().width`.
+
+* **`[start, end)` indices instead of a `text` substring**: Callers already hold the input string passed to `shapeText(text)`. Exposing `start` and `end` (UTF-16 code unit offsets) directly on `GlyphRun` is self-documenting, avoids allocating a `TextRun` wrapper and substring copy per cluster, and eliminates the boilerplate of computing `start + text.length`.
+* **Direct `(x, y)` position and `width` advance**: Exposing `x`, `y` (relative to the `ShapedText` anchor point), and `width` directly on `GlyphRun` allows clients to position, transform, or animate clusters in arbitrary order (e.g. text on a path) without maintaining a manual advance accumulator or allocating a `TextMetrics` object for every cluster in hot loops.
+
+#### 3. Phased scoping: `FormattedText` and `Intl.Segmenter`
+WebKit's explainer also includes multi-style inputs (`FormattedText` / `FormattedTextRun`) and a static `Intl.Segmenter.breakText()` method for line-break opportunities. Those parts are intentionally decoupled from this initial proposal:
+
+* **Single-style `shapeText(DOMString)` first**: Existing canvas text engines (such as Flutter Web) already manage style spans and line breaking, and only require single-style shaping and cluster rendering from Canvas 2D. Starting with `shapeText(DOMString)` matches `fillText()` / `strokeText()` / `measureText()` and remains forward-compatible with a future `shapeText(FormattedText)` overload.
+* **Extending `Intl.Segmenter` in ECMA-402**: Line-break segmentation is standardized in ECMA-402 (TC39) rather than HTML. Extending the existing `Intl.Segmenter` instance API (which already supports `'grapheme'`, `'word'`, and `'sentence'` granularities and respects instance locale options) with `{ granularity: 'line' }` is a cleaner fit than a static `Intl.Segmenter.breakText()` method, and decoupling it avoids blocking Canvas 2D text shaping on a cross-committee dependency.
