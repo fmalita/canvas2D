@@ -34,16 +34,16 @@ interface ShapedText {
 
   sequence<GlyphRun> glyphRuns();
   sequence<GlyphRun> glyphClusters();
-  sequence<GlyphRun> glyphClusters(unsigned long start, unsigned long end);
+  sequence<GlyphRun> glyphClusters([EnforceRange] unsigned long start, [EnforceRange] unsigned long end);
 
-  sequence<DOMRectReadOnly> selectionRects(unsigned long start, unsigned long end);
-  DOMRectReadOnly actualBoundingBox(unsigned long start, unsigned long end);
+  sequence<DOMRectReadOnly> selectionRects([EnforceRange] unsigned long start, [EnforceRange] unsigned long end);
+  DOMRectReadOnly actualBoundingBox([EnforceRange] unsigned long start, [EnforceRange] unsigned long end);
   unsigned long advanceToPosition(double advance);
-  double positionToAdvance(unsigned long position);
+  double positionToAdvance([EnforceRange] unsigned long position);
 };
 
-interface CanvasRenderingContext2D {
-  // ... extended from current CanvasRenderingContext2D (CanvasText).
+partial interface mixin CanvasText {
+  // Included by CanvasRenderingContext2D and OffscreenCanvasRenderingContext2D.
 
   ShapedText shapeText(DOMString text);
 
@@ -60,7 +60,7 @@ interface CanvasRenderingContext2D {
 
 `actualBoundingBox()` returns an equivalent box to `TextMetrics.actualBoundingBox*`, i.e., the ink bounding rectangle for the drawing of that `[start, end)` range. Notice that this can be (and usually is) different from the selection rect, as those are about the flow and advance of the text. A font that is particularly slanted or whose accents go beyond the flow of text will have a different paint bounding box. For example: if you select this: ***W*** you will see that the end of the W is outside the selection area, which would be covered by the paint (actual bounding box) area.
 
-The `advanceToPosition()` method (formerly `getIndexFromOffset()` / `caretPositionFromPoint()`) returns the code unit index for the character at the given `advance` distance from the anchor position of the shaped text (accounting for `textAlign` and `textBaseline`) with `advance` always increasing left to right (so negative values are valid). Values to the left or right of the text bounds will return `0` or `text.length` depending on the writing direction. The functionality is similar but not identical to [`document.caretPositionFromPoint`](https://developer.mozilla.org/en-US/docs/Web/API/Document/caretPositionFromPoint). In particular, there is no need to return the element containing the caret and offsets beyond the boundaries of the string are acceptable.
+The `advanceToPosition()` method (formerly `getIndexFromOffset()` / `caretPositionFromPoint()`) returns the code unit index for the character at the given `advance` distance from the anchor position of the shaped text (accounting for `textAlign`) with `advance` always increasing left to right (so negative values are valid). Values to the left or right of the text bounds will return `0` or `text.length` depending on the writing direction. The functionality is similar but not identical to [`document.caretPositionFromPoint`](https://developer.mozilla.org/en-US/docs/Web/API/Document/caretPositionFromPoint). In particular, there is no need to return the element containing the caret and offsets beyond the boundaries of the string are acceptable.
 
 Conversely, `positionToAdvance()` returns the horizontal caret offset (relative to the `ShapedText` anchor point) corresponding to the given UTF-16 code unit `position`.
 
