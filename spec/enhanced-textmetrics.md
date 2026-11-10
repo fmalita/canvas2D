@@ -78,6 +78,11 @@ To render runs or clusters onto the canvas, `fillGlyphRun()`, `strokeGlyphRun()`
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext("2d");
 
+ctx.font = '60px sans-serif';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.translate(canvas.width / 2, canvas.height / 2);
+
 const shapedText = ctx.shapeText("let's do this");
 ctx.fillStyle = 'red';
 const boxForSecondWord = shapedText.actualBoundingBox(6, 8);
@@ -105,7 +110,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
 ctx.font = '60px serif';
-ctx.textAlign = 'left';
+ctx.textAlign = 'center';
 ctx.textBaseline = 'middle';
 
 const text = 'Colors 🎨 are 🏎️ fine!';
@@ -115,7 +120,7 @@ const clusters = shapedText.glyphClusters();
 const colors = ['orange', 'navy', 'teal', 'crimson'];
 for (const cluster of clusters) {
     ctx.fillStyle = colors[cluster.start % colors.length];
-    ctx.fillGlyphRun(cluster, 0, 0);
+    ctx.fillGlyphRun(cluster, canvas.width / 2, canvas.height / 2);
 }
 ```
 
